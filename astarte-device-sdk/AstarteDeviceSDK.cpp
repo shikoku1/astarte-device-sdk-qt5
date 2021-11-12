@@ -397,11 +397,6 @@ bool AstarteDeviceSDK::disconnectFromAstarte()
 template <typename T> bool AstarteDeviceSDK::sendData(const QByteArray &interface, const QByteArray &path,
                                                       const QList<T> &valueList, const QDateTime &timestamp, const QVariantHash &metadata)
 {
-    if (!m_producers.contains(interface)) {
-        qCWarning(astarteDeviceSDKDC) << "No producers for interface " << interface;
-        return false;
-    }
-
     QList<QVariant> variantValue;
     variantValue.reserve(valueList.length());
 

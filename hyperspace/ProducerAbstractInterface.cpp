@@ -146,6 +146,8 @@ void ProducerAbstractInterface::sendRawDataOnEndpoint(const QByteArray &value, c
         return;
     }
 
+    qDebug() << value;
+
     Fluctuation fluctuation;
     fluctuation.setPayload(value);
     fluctuation.setAttributes(attributes);
