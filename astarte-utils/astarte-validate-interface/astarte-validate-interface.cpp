@@ -22,58 +22,75 @@
 #include <QtCore/QFile>
 #include <QtCore/QObject>
 #include <QtCore/QTextStream>
-
+ #include <QDateTime>
+#include <QtCore/QDir>
+ #include <QObject>
 #include <HemeraCore/Operation>
+#include <AstarteDeviceSDK.h>
 
 #include <ValidateInterfaceOperation.h>
+#include <unistd.h>
+
+
+AstarteDeviceSDK *sdk;
+
+void checkInitResult(Hemera::Operation *op) {
+  qDebug() << "-------------- ok";
+
+  sdk->sendData("com.test.Everything", "/double", 3.3, QDateTime::currentDateTime());
+  sdk->sendData("com.test.Everything", "/integer", 3, QDateTime::currentDateTime());
+  sdk->sendData("com.test.Everything", "/boolean", false, QDateTime::currentDateTime());
+
+
+
+  //sdk->sendData("com.test.Everything", "/boolean", var, QDateTime::currentDateTime());
+  qDebug() << "-------------- ok2";
+
+  while (1) {
+      qDebug() << "-------------- loop";
+
+      sdk->sendData("com.test.Everything", "/double", 3.3, QDateTime::currentDateTime());
+
+      {
+        QList<int> list = { 1, 2, 3};
+        sdk->sendData("com.test.Everything", "/integerarray", list, QDateTime::currentDateTime());
+      }
+      {
+        QList<bool> list = { true, false, true};
+        sdk->sendData("com.test.Everything", "/booleanarray", list, QDateTime::currentDateTime());
+      }
+      {
+        QList<double> list = { 4.5, 4.6, 4.7};
+        sdk->sendData("com.test.Everything", "/doublearray", list, QDateTime::currentDateTime());
+      }
+
+      {
+        qDebug() << "expect an error";
+        QList<double> list = { 4.5, 4.6, 4.7};
+        sdk->sendData("com.test.Everything", "/double", list, QDateTime::currentDateTime());
+      }
+      {
+        qDebug() << "expect an error";
+        QList<QString> list = { QStringLiteral("fsd"), QStringLiteral("gfdgfd"), QStringLiteral("hbgf")};
+        sdk->sendData("com.test.Everything", "/datetimearray", list, QDateTime::currentDateTime());
+      }
+      sleep(1);
+  }
+}
+
 
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    app.setApplicationName(QObject::tr("Astarte interface validator"));
-    app.setOrganizationDomain(QStringLiteral("com.ispirata.Hemera"));
-    app.setOrganizationName(QStringLiteral("Ispirata"));
 
-    QCommandLineParser parser;
-    parser.setApplicationDescription(QObject::tr("Astarte interface manager"));
-    parser.addVersionOption();
-    parser.addHelpOption();
-    parser.addPositionalArgument(QStringLiteral("interface"), QObject::tr("The path to the interface JSON"));
+    sdk = new AstarteDeviceSDK(QDir::currentPath() + QStringLiteral("/transport-astarte.conf"), QDir::currentPath()+ QStringLiteral("/interfaces"),
+                               "u-WraCwtT_G_fjJf63TiAw");
 
-    parser.addOptions({
-        {
-            QStringList{QStringLiteral("f"), QStringLiteral("force")},
-            QObject::tr("Force interface registration even if it overwrites an already existing interface file")
-        }
-    });
 
-    parser.process(app);
+    QObject::connect(sdk->init(), &Hemera::Operation::finished, checkInitResult);
 
-    if (parser.positionalArguments().length() < 1) {
-        parser.showHelp();
-    } else {
-        QStringList arguments = parser.positionalArguments();
-        QString interface = arguments.value(0);
 
-        if (interface.isEmpty()) {
-            QTextStream(stderr) << QObject::tr("You must supply an interface file to validate\n");
-            return -1;
-        }
 
-        ValidateInterfaceOperation *op = new ValidateInterfaceOperation(interface);
-        QObject::connect(op, &Hemera::Operation::finished, [op, &app] {
-            if (op->isError()) {
-                QTextStream(stderr) << QObject::tr("Validation failed:\n%1\n")
-                                       .arg(op->errorMessage());
-                app.exit(1);
-            } else {
-                QTextStream(stdout) << QObject::tr("Valid interface\n");
-                app.quit();
-            }
-        });
-
-        return app.exec();
-    }
-
+    return app.exec();
 }

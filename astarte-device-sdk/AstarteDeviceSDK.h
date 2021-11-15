@@ -32,6 +32,8 @@ class AstarteGenericConsumer;
 class AstarteGenericProducer;
 class QJsonSchemaChecker;
 
+enum endpointType {Scalar, Array};
+
 class AstarteDeviceSDK : public Hemera::AsyncInitObject
 {
     Q_OBJECT
@@ -97,7 +99,7 @@ private:
     void createProducer(const Hyperdrive::Interface &interface, const QJsonObject &producerObject);
     void createConsumer(const Hyperdrive::Interface &interface, const QJsonObject &consumerObject);
 
-    QVariant::Type typeStringToVariantType(const QString &typeString) const;
+    std::pair<QVariant::Type, endpointType> typeStringToVariantType(const QString &typeString) const;
     Hyperspace::Retention retentionStringToRetention(const QString &retentionString) const;
     Hyperspace::Reliability reliabilityStringToReliability(const QString &reliabilityString) const;
 

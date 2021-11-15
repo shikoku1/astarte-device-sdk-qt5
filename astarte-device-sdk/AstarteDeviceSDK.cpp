@@ -149,6 +149,8 @@ void AstarteDeviceSDK::createConsumer(const Hyperdrive::Interface &interface, co
 {
     QHash<QByteArray, QByteArrayList> mappingToTokens;
     QHash<QByteArray, QVariant::Type> mappingToType;
+    QHash<QByteArray, QVariant::Type> mappingToArrayType;
+
     QHash<QByteArray, bool> mappingToAllowUnset;
 
     for (const QJsonValue &value : consumerObject.value(QStringLiteral("mappings")).toArray()) {
@@ -159,7 +161,15 @@ void AstarteDeviceSDK::createConsumer(const Hyperdrive::Interface &interface, co
         mappingToTokens.insert(endpoint, tokens);
 
         QString typeString = mappingObj.value(QStringLiteral("type")).toString();
-        mappingToType.insert(endpoint, typeStringToVariantType(typeString));
+
+        auto ty=typeStringToVariantType(typeString);
+        switch (ty.second) {
+            case endpointType::Scalar:
+            mappingToType.insert(endpoint, ty.first);
+
+            case endpointType::Array:
+            mappingToArrayType.insert(endpoint, ty.first);
+        }
 
         if (interface.interfaceType() == Hyperdrive::Interface::Type::Properties && mappingObj.contains(QStringLiteral("allow_unset"))) {
             bool allowUnset = mappingObj.value(QStringLiteral("allow_unset")).toBool();
@@ -170,6 +180,7 @@ void AstarteDeviceSDK::createConsumer(const Hyperdrive::Interface &interface, co
     AstarteGenericConsumer *consumer = new AstarteGenericConsumer(interface.interface(), m_astarteTransport, this);
     consumer->setMappingToTokens(mappingToTokens);
     consumer->setMappingToType(mappingToType);
+    consumer->setMappingToArrayType(mappingToArrayType);
     consumer->setMappingToAllowUnset(mappingToAllowUnset);
 
     m_consumers.insert(interface.interface(), consumer);
@@ -180,6 +191,7 @@ void AstarteDeviceSDK::createProducer(const Hyperdrive::Interface &interface, co
 {
     QHash<QByteArray, QByteArrayList> mappingToTokens;
     QHash<QByteArray, QVariant::Type> mappingToType;
+    QHash<QByteArray, QVariant::Type> mappingToArrayType;
     QHash<QByteArray, Hyperspace::Retention> mappingToRetention;
     QHash<QByteArray, Hyperspace::Reliability> mappingToReliability;
     QHash<QByteArray, int> mappingToExpiry;
@@ -193,7 +205,14 @@ void AstarteDeviceSDK::createProducer(const Hyperdrive::Interface &interface, co
         mappingToTokens.insert(endpoint, tokens);
 
         QString typeString = mappingObj.value(QStringLiteral("type")).toString();
-        mappingToType.insert(endpoint, typeStringToVariantType(typeString));
+        auto ty=typeStringToVariantType(typeString);
+        switch (ty.second) {
+            case endpointType::Scalar:
+            mappingToType.insert(endpoint, ty.first);
+
+            case endpointType::Array:
+            mappingToArrayType.insert(endpoint, ty.first);
+        }
 
         if (interface.interfaceType() == Hyperdrive::Interface::Type::DataStream) {
             if (mappingObj.contains(QStringLiteral("retention"))) {
@@ -218,6 +237,7 @@ void AstarteDeviceSDK::createProducer(const Hyperdrive::Interface &interface, co
                                                                   m_astarteTransport, this);
     producer->setMappingToTokens(mappingToTokens);
     producer->setMappingToType(mappingToType);
+    producer->setMappingToArrayType(mappingToArrayType);
     producer->setMappingToRetention(mappingToRetention);
     producer->setMappingToReliability(mappingToReliability);
     producer->setMappingToExpiry(mappingToExpiry);
@@ -227,28 +247,43 @@ void AstarteDeviceSDK::createProducer(const Hyperdrive::Interface &interface, co
     qCDebug(astarteDeviceSDKDC) << "Producer for interface " << interface.interface() << " successfully initialized";
 }
 
-QVariant::Type AstarteDeviceSDK::typeStringToVariantType(const QString &typeString) const
+
+std::pair<QVariant::Type, endpointType> AstarteDeviceSDK::typeStringToVariantType(const QString &typeString) const
 {
-    QVariant::Type dataType = QVariant::Invalid;
     if (typeString == QStringLiteral("integer")) {
-        dataType = QVariant::Int;
+        return  { QVariant::Int, endpointType::Scalar};
     } else if (typeString == QStringLiteral("longinteger")) {
-        dataType = QVariant::LongLong;
+        return  { QVariant::LongLong, endpointType::Scalar};
     } else if (typeString == QStringLiteral("double")) {
-        dataType = QVariant::Double;
+        return  { QVariant::Double, endpointType::Scalar};
     } else if (typeString == QStringLiteral("datetime")) {
-        dataType = QVariant::DateTime;
+        return  { QVariant::DateTime, endpointType::Scalar};
     } else if (typeString == QStringLiteral("string")) {
-        dataType = QVariant::String;
+        return  { QVariant::String, endpointType::Scalar};
     } else if (typeString == QStringLiteral("boolean")) {
-        dataType = QVariant::Bool;
+        return  { QVariant::Bool, endpointType::Scalar};
     } else if (typeString == QStringLiteral("binaryblob")) {
-        dataType = QVariant::ByteArray;
-    } else {
+        return  { QVariant::ByteArray, endpointType::Scalar};
+    } else
+    if (typeString == QStringLiteral("integerarray")) {
+        return  { QVariant::Int, endpointType::Array};
+    } else if (typeString == QStringLiteral("longintegerarray")) {
+        return  { QVariant::LongLong, endpointType::Array};
+    } else if (typeString == QStringLiteral("doublearray")) {
+        return  { QVariant::Double, endpointType::Array};
+    } else if (typeString == QStringLiteral("datetimearray")) {
+        return  { QVariant::DateTime, endpointType::Array};
+    } else if (typeString == QStringLiteral("stringarray")) {
+        return  { QVariant::String, endpointType::Array};
+    } else if (typeString == QStringLiteral("booleanarray")) {
+        return  { QVariant::Bool, endpointType::Array};
+    } else if (typeString == QStringLiteral("binaryblobarray")) {
+        return  { QVariant::ByteArray, endpointType::Array};
+    }{
         qCWarning(astarteDeviceSDKDC) << QStringLiteral("Type %1 unspecified!").arg(typeString);
+        return  { QVariant::Invalid, endpointType::Scalar};
     }
 
-    return dataType;
 }
 
 Hyperspace::Retention AstarteDeviceSDK::retentionStringToRetention(const QString &retentionString) const
