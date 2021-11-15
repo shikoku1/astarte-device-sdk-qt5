@@ -148,7 +148,7 @@ void AstarteDeviceSDK::loadInterfaces()
 void AstarteDeviceSDK::createConsumer(const Hyperdrive::Interface &interface, const QJsonObject &consumerObject)
 {
     QHash<QByteArray, QByteArrayList> mappingToTokens;
-    QHash<QByteArray, QVariant::Type> mappingToType;
+    QHash<QByteArray, QVariant> mappingToType;
     QHash<QByteArray, bool> mappingToAllowUnset;
 
     for (const QJsonValue &value : consumerObject.value(QStringLiteral("mappings")).toArray()) {
@@ -179,7 +179,7 @@ void AstarteDeviceSDK::createConsumer(const Hyperdrive::Interface &interface, co
 void AstarteDeviceSDK::createProducer(const Hyperdrive::Interface &interface, const QJsonObject &producerObject)
 {
     QHash<QByteArray, QByteArrayList> mappingToTokens;
-    QHash<QByteArray, QVariant::Type> mappingToType;
+    QHash<QByteArray, QVariant> mappingToType;
     QHash<QByteArray, Hyperspace::Retention> mappingToRetention;
     QHash<QByteArray, Hyperspace::Reliability> mappingToReliability;
     QHash<QByteArray, int> mappingToExpiry;
@@ -194,6 +194,8 @@ void AstarteDeviceSDK::createProducer(const Hyperdrive::Interface &interface, co
 
         QString typeString = mappingObj.value(QStringLiteral("type")).toString();
         mappingToType.insert(endpoint, typeStringToVariantType(typeString));
+
+        qDebug() << endpoint <<  typeStringToVariantType(typeString);
 
         if (interface.interfaceType() == Hyperdrive::Interface::Type::DataStream) {
             if (mappingObj.contains(QStringLiteral("retention"))) {
@@ -227,28 +229,42 @@ void AstarteDeviceSDK::createProducer(const Hyperdrive::Interface &interface, co
     qCDebug(astarteDeviceSDKDC) << "Producer for interface " << interface.interface() << " successfully initialized";
 }
 
-QVariant::Type AstarteDeviceSDK::typeStringToVariantType(const QString &typeString) const
+QVariant AstarteDeviceSDK::typeStringToVariantType(const QString &typeString) const
 {
-    QVariant::Type dataType = QVariant::Invalid;
+
     if (typeString == QStringLiteral("integer")) {
-        dataType = QVariant::Int;
+        return  QVariant::Int;
     } else if (typeString == QStringLiteral("longinteger")) {
-        dataType = QVariant::LongLong;
+        return  QVariant::LongLong;
     } else if (typeString == QStringLiteral("double")) {
-        dataType = QVariant::Double;
+        return  QVariant::Double;
     } else if (typeString == QStringLiteral("datetime")) {
-        dataType = QVariant::DateTime;
+        return  QVariant::DateTime;
     } else if (typeString == QStringLiteral("string")) {
-        dataType = QVariant::String;
+        return  QVariant::String;
     } else if (typeString == QStringLiteral("boolean")) {
-        dataType = QVariant::Bool;
+        return  QVariant::Bool;
     } else if (typeString == QStringLiteral("binaryblob")) {
-        dataType = QVariant::ByteArray;
-    } else {
+        return  QVariant::ByteArray;
+    } else if (typeString == QStringLiteral("integerarray")) {
+        return  QVariant::fromValue<QList<int>>({});
+    } else if (typeString == QStringLiteral("longintegerarray")) {
+        return  QVariant::fromValue<QList<qlonglong>>({});
+    } else if (typeString == QStringLiteral("doublearray")) {
+        return  QVariant::fromValue<QList<double>>({});
+    } else if (typeString == QStringLiteral("datetimearray")) {
+        return  QVariant::fromValue<QList<QDateTime>>({});
+    } else if (typeString == QStringLiteral("stringarray")) {
+        return  QVariant::fromValue<QList<QString>>({});
+    } else if (typeString == QStringLiteral("booleanarray")) {
+        return  QVariant::fromValue<QList<bool>>({});
+    } else if (typeString == QStringLiteral("binaryblobarray")) {
+        return  QVariant::fromValue<QList<QByteArray>>({});
+    }{
         qCWarning(astarteDeviceSDKDC) << QStringLiteral("Type %1 unspecified!").arg(typeString);
+        return  QVariant::Invalid;
     }
 
-    return dataType;
 }
 
 Hyperspace::Retention AstarteDeviceSDK::retentionStringToRetention(const QString &retentionString) const
@@ -301,7 +317,7 @@ bool AstarteDeviceSDK::sendData(const QByteArray &interface, const QVariantHash 
         return false;
     }
     // Verify mappings
-    QHash< QByteArray, QVariant::Type > mappingToType = m_producers.value(interface)->mappingToType();
+    QHash< QByteArray, QVariant > mappingToType = m_producers.value(interface)->mappingToType();
     if (mappingToType.size() != value.size()) {
         qCWarning(astarteDeviceSDKDC) << "You have to provide exactly all the values of the aggregated interface!";
         return false;
@@ -422,7 +438,7 @@ template <typename T> bool AstarteDeviceSDK::sendData(const QByteArray &interfac
         variantValue.append(QVariant(valueList[i]));
     }
 
-    return m_producers.value(interface)->sendData(variantValue, path, timestamp, metadata);
+    return m_producers.value(interface)->sendData(QVariant(variantValue), path, timestamp, metadata);
 }
 
 template bool AstarteDeviceSDK::sendData(const QByteArray &interface, const QByteArray &path, const QList<QByteArray> &value, const QDateTime &timestamp, const QVariantHash &metadata);

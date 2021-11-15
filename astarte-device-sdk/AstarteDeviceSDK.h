@@ -97,7 +97,7 @@ private:
     void createProducer(const Hyperdrive::Interface &interface, const QJsonObject &producerObject);
     void createConsumer(const Hyperdrive::Interface &interface, const QJsonObject &consumerObject);
 
-    QVariant::Type typeStringToVariantType(const QString &typeString) const;
+    QVariant typeStringToVariantType(const QString &typeString) const;
     Hyperspace::Retention retentionStringToRetention(const QString &retentionString) const;
     Hyperspace::Reliability reliabilityStringToReliability(const QString &reliabilityString) const;
 

@@ -276,7 +276,12 @@ void ProducerAbstractInterface::sendDataOnEndpoint(QList<QVariant> value, const 
         const QHash<QByteArray, QByteArray> &attributes, const QDateTime &timestamp, const QVariantHash &metadata)
 {
     Util::BSONSerializer serializer;
-    serializer.appendArray("v", value);
+    if(value.length() != 0){
+        serializer.appendArray("v", value);
+    } else {
+        serializer.appendEmptyArray("v");
+    }
+
     if (!timestamp.isNull() && timestamp.isValid()) {
         serializer.appendDateTime("t", timestamp);
     }

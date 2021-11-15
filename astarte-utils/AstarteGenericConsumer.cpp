@@ -35,7 +35,7 @@ void AstarteGenericConsumer::setMappingToTokens(const QHash<QByteArray, QByteArr
     m_mappingToTokens = mappingToTokens;
 }
 
-void AstarteGenericConsumer::setMappingToType(const QHash<QByteArray, QVariant::Type> &mappingToType)
+void AstarteGenericConsumer::setMappingToType(const QHash<QByteArray, QVariant> &mappingToType)
 {
     m_mappingToType = mappingToType;
 }
@@ -87,7 +87,7 @@ Hyperspace::ProducerConsumer::ConsumerAbstractAdaptor::DispatchResult AstarteGen
             }
         }
 
-        switch (m_mappingToType.value(matchedMapping)) {
+        switch (m_mappingToType.value(matchedMapping).type()) {
             case QMetaType::Bool: {
                 bool value;
                 if (!payloadToValue(payload, &value)) return CouldNotConvertPayload;

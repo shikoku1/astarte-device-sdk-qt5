@@ -189,6 +189,17 @@ void BSONSerializer::appendArray(const char *name, const QList<QVariant> &value)
     m_doc.append(subDocument.document());
 }
 
+void BSONSerializer::appendEmptyArray(const char *name)
+{
+    m_doc.append(BSON_TYPE_ARRAY);
+
+    BSONSerializer subDocument;
+
+    subDocument.appendEndOfDocument();
+    m_doc.append(name, strlen(name) + 1);
+    m_doc.append(subDocument.document());
+}
+
 void BSONSerializer::appendValue(const char *name, const QVariant &value)
 {
     switch (value.type()) {

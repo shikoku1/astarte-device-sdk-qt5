@@ -37,7 +37,7 @@ public:
     virtual ~AstarteGenericConsumer();
 
     void setMappingToTokens(const QHash<QByteArray, QByteArrayList> &mappingToTokens);
-    void setMappingToType(const QHash<QByteArray, QVariant::Type> &mappingToType);
+    void setMappingToType(const QHash<QByteArray, QVariant> &mappingToType);
     void setMappingToAllowUnset(const QHash<QByteArray, bool> &mappingToAllowUnset);
 
 protected:
@@ -48,7 +48,7 @@ private:
     inline AstarteDeviceSDK *parent() const { return static_cast<AstarteDeviceSDK *>(QObject::parent()); }
 
     QHash<QByteArray, QByteArrayList> m_mappingToTokens;
-    QHash<QByteArray, QVariant::Type> m_mappingToType;
+    QHash<QByteArray, QVariant> m_mappingToType;
     QHash<QByteArray, bool> m_mappingToAllowUnset;
 };
 

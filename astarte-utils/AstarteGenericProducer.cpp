@@ -36,17 +36,24 @@ QHash<QByteArray, QByteArrayList> AstarteGenericProducer::mappingToTokens() cons
     return m_mappingToTokens;
 }
 
-QHash<QByteArray, QVariant::Type> AstarteGenericProducer::mappingToType() const
+QHash<QByteArray, QVariant> AstarteGenericProducer::mappingToType() const
 {
     return m_mappingToType;
+}
+
+bool validateTarget(const QByteArray &target){
+    if (!target.startsWith('/') || target.endsWith('/') || target.contains("//")
+            || target.contains(";") || target.contains('\n') || target.contains('\r')
+            || target.contains('+') || target.contains('#')) {
+        return false;
+    }
+    return true;
 }
 
 bool AstarteGenericProducer::sendData(const QVariant &value, const QByteArray &target,
         const QDateTime &timestamp, const QVariantHash &metadata)
 {
-    if (!target.startsWith('/') || target.endsWith('/') || target.contains("//")
-            || target.contains(";") || target.contains('\n') || target.contains('\r')
-            || target.contains('+') || target.contains('#')) {
+    if (!validateTarget(target)) {
         qWarning() << "Invalid target: " << target << ". Discarding value: " << value;
         return false;
     }
@@ -76,10 +83,6 @@ bool AstarteGenericProducer::sendData(const QVariant &value, const QByteArray &t
 
         QByteArray matchedMapping = it.key();
 
-        if (!value.canConvert(m_mappingToType.value(matchedMapping))) {
-            qWarning() << "Invalid type for value in sendDataOnEndpoint, expected " << m_mappingToType.value(matchedMapping) << "got" << value.type();
-            return false;
-        }
 
         QHash<QByteArray, QByteArray> attributes;
         attributes.insert("interfaceType", QByteArray::number(static_cast<int>(m_interfaceType)));
@@ -94,49 +97,67 @@ bool AstarteGenericProducer::sendData(const QVariant &value, const QByteArray &t
             attributes.insert("reliability", QByteArray::number(static_cast<int>(m_mappingToReliability.value(matchedMapping))));
         }
 
-        QVariant converted = value;
-        converted.convert(m_mappingToType.value(matchedMapping));
-        switch (converted.type()) {
-            case QVariant::Bool:
-                sendDataOnEndpoint(value.toBool(), target, attributes, timestamp, metadata);
+
+        // array type
+        if (value.canConvert<QList<QVariant>>()) {
+            QVariant variant = value.value<QList<QVariant>>();
+            QList<QVariant> list = variant.toList();
+
+            if (list.length() == 0){
+                // if empty, we don't care but we have to send the array
+                sendDataOnEndpoint(list, target, attributes, timestamp, metadata);
                 return true;
-            case QVariant::ByteArray:
-                sendDataOnEndpoint(value.toByteArray(), target, attributes, timestamp, metadata);
-                return true;
-            case QVariant::DateTime:
-                sendDataOnEndpoint(value.toDateTime(), target, attributes, timestamp, metadata);
-                return true;
-            case QVariant::Double:
-                sendDataOnEndpoint(value.toDouble(), target, attributes, timestamp, metadata);
-                return true;
-            case QVariant::Int:
-                sendDataOnEndpoint(value.toInt(), target, attributes, timestamp, metadata);
-                return true;
-            case QVariant::LongLong:
-                sendDataOnEndpoint(value.toLongLong(), target, attributes, timestamp, metadata);
-                return true;
-            case QVariant::String:
-                sendDataOnEndpoint(value.toString(), target, attributes, timestamp, metadata);
-                return true;
-            default:
-                qWarning() << "Can't find valid type for " << target;
+            } else {
+                // if there's something in the array
+
+                //this is only a demonstration
+                if (std::string(m_mappingToType.value(matchedMapping).typeName()).find(list[0].typeName()) != std::string::npos) {
+                    sendDataOnEndpoint(list, target, attributes, timestamp, metadata);
+                    return true;
+                }
+            }
+        } else { // scalar type
+
+            if (!value.canConvert(m_mappingToType.value(matchedMapping).type())) {
+                qWarning() << "Invalid type for scalar value in sendDataOnEndpoint, expected " << m_mappingToType.value(matchedMapping) << "got" << value.type() << "for " << matchedMapping;
+                return false;
+            }
+
+
+            QVariant converted = value;
+            converted.convert(m_mappingToType.value(matchedMapping).type());
+            switch (converted.type()) {
+                case QVariant::Bool:
+                    sendDataOnEndpoint(value.toBool(), target, attributes, timestamp, metadata);
+                    return true;
+                case QVariant::ByteArray:
+                    sendDataOnEndpoint(value.toByteArray(), target, attributes, timestamp, metadata);
+                    return true;
+                case QVariant::DateTime:
+                    sendDataOnEndpoint(value.toDateTime(), target, attributes, timestamp, metadata);
+                    return true;
+                case QVariant::Double:
+                    sendDataOnEndpoint(value.toDouble(), target, attributes, timestamp, metadata);
+                    return true;
+                case QVariant::Int:
+                    sendDataOnEndpoint(value.toInt(), target, attributes, timestamp, metadata);
+                    return true;
+                case QVariant::LongLong:
+                    sendDataOnEndpoint(value.toLongLong(), target, attributes, timestamp, metadata);
+                    return true;
+                case QVariant::String:
+                    sendDataOnEndpoint(value.toString(), target, attributes, timestamp, metadata);
+                    return true;
+                default:
+                    qWarning() << "Can't find valid scalar type for " << target;
+            }
+
         }
     }
 
+
     qWarning() << "Can't find valid mapping for " << target;
     return false;
-}
-
-bool AstarteGenericProducer::sendData(const QList<QVariant> &value, const QByteArray &target, const QDateTime &timestamp, const QVariantHash &metadata)
-{
-    // TODO: checks
-    QHash<QByteArray, QByteArray> attributes;
-    attributes.insert("interfaceType", QByteArray::number(static_cast<int>(m_interfaceType)));
-    // TODO: handle reliability, retention and expiry
-
-    sendDataOnEndpoint(value, target, attributes, timestamp, metadata);
-
-    return true;
 }
 
 bool AstarteGenericProducer::sendData(const QVariantHash &value, const QByteArray &target, const QDateTime &timestamp, const QVariantHash &metadata)
@@ -153,10 +174,8 @@ bool AstarteGenericProducer::sendData(const QVariantHash &value, const QByteArra
 
 bool AstarteGenericProducer::unsetPath(const QByteArray &target)
 {
-    if (!target.startsWith('/') || target.endsWith('/') || target.contains("//")
-            || target.contains(";") || target.contains('\n') || target.contains('\r')
-            || target.contains('+') || target.contains('#')) {
-        qWarning() << "Invalid target: " << target << ". Discarding unset.\n";
+    if (!validateTarget(target)) {
+        qWarning() << "Invalid target: " << target << ". Discarding unset";
         return false;
     }
 
@@ -203,7 +222,7 @@ void AstarteGenericProducer::setMappingToTokens(const QHash<QByteArray, QByteArr
     m_mappingToTokens = mappingToTokens;
 }
 
-void AstarteGenericProducer::setMappingToType(const QHash<QByteArray, QVariant::Type> &mappingToType)
+void AstarteGenericProducer::setMappingToType(const QHash<QByteArray, QVariant> &mappingToType)
 {
     m_mappingToType = mappingToType;
 }
